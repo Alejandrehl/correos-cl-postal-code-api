@@ -136,7 +136,8 @@ export async function scrapePostalCode(
 
     return { error: `Scraper failed: ${message}` };
   } finally {
-    console.log('[INFO] Closing browser...');
-    await browserManager.close();
+    console.log('[INFO] Closing page and releasing browser...');
+    if (page && !page.isClosed()) await page.close();
+    browserManager.release(browser);
   }
 }

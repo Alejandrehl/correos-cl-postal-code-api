@@ -8,6 +8,7 @@ import { StreetsModule } from './streets/streets.module';
 import { StreetNumbersModule } from './street-numbers/street-numbers.module';
 import { SeedersModule } from './seeders/seeders.module';
 import { StatsModule } from './stats/stats.module';
+import { BrowserCleanupService } from './common/services/browser-cleanup.service';
 
 @Module({
   imports: [
@@ -38,5 +39,6 @@ import { StatsModule } from './stats/stats.module';
     SeedersModule,
     StatsModule,
   ],
+  providers: [BrowserCleanupService],
 })
 export class AppModule {}
