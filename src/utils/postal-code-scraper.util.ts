@@ -1,5 +1,6 @@
-import { chromium, Page } from 'playwright';
+import { Page } from 'playwright';
 import { normalizeText } from './normalize-text.util';
+import * as browserManager from './browser-manager';
 
 function wait(seconds: number, msg = ''): Promise<void> {
   if (msg) console.log(`[WAIT] ${msg} (${seconds}s)`);
@@ -68,7 +69,7 @@ export async function scrapePostalCode(
   const normalizedStreet = normalizeText(street);
   const normalizedNumber = normalizeText(number);
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await browserManager.get();
   const page = await browser.newPage();
   page.setDefaultTimeout(20000);
 
@@ -136,6 +137,6 @@ export async function scrapePostalCode(
     return { error: `Scraper failed: ${message}` };
   } finally {
     console.log('[INFO] Closing browser...');
-    await browser.close();
+    await browserManager.close();
   }
 }
