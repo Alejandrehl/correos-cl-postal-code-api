@@ -40,11 +40,13 @@ async function bootstrap(): Promise<void> {
     .setTitle('📮 Chilean Postal Codes API')
     .setDescription(
       `
-This API allows you to retrieve Chilean postal codes based on exact address input (commune, street, and number), using real-time scraping from Correos de Chile.
+📮 **The Chilean Postal Codes API** provides programmatic access to real-time and cached postal code data for Chile.
 
 ---
 
-## 🔓 Public Endpoints (no authentication required)
+## 🔓 Free Public Endpoints (no authentication required)
+These endpoints are open to everyone and ready to integrate into any system — no API key or contact required.
+
 - \`GET /v1/health\` → System health status
 - \`GET /v1/stats/summary\` → Record counts for each entity
 - \`GET /v1/postal-codes/search\` → Search postal code by address
@@ -52,12 +54,14 @@ This API allows you to retrieve Chilean postal codes based on exact address inpu
 - \`GET /v1/communes/all\` → List of Chilean communes
 
 ## 🔐 Protected Endpoints (password required)
-- Paginated list of all postal codes
-- Reverse lookup by postal code
-- Internal seeders and normalization tools
-- Data cleanup and maintenance
+These endpoints provide full access to stored postal data, reverse lookups, internal tools, and data maintenance.
+They are intended for **commercial** or **internal** use only.
 
-> ⚠️ Protected endpoints are intended for internal or commercial use only.
+- \`GET /v1/postal-codes\` → Paginated list of all postal codes
+- \`GET /v1/postal-codes/:code\` → Reverse lookup: addresses for a postal code
+- \`POST /v1/seeders/*\` → Seeding & normalization tools
+
+> ⚠️ To access protected features or request a commercial subscription, contact us at [contacto@kainext.cl](mailto:contacto@kainext.cl).
 
 ---
 
