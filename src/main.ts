@@ -61,7 +61,7 @@ They are intended for **commercial** or **internal** use only.
 - \`GET /v1/postal-codes/:code\` → Reverse lookup: addresses for a postal code
 - \`POST /v1/seeders/*\` → Seeding & normalization tools
 
-> ⚠️ To access protected features or request a commercial subscription, contact us at [contacto@kainext.cl](mailto:contacto@kainext.cl).
+> ⚠️ To access protected features or request a commercial subscription, contact us at [alejandro@kainext.cl](mailto:alejandro@kainext.cl).
 
 ---
 
@@ -69,7 +69,7 @@ They are intended for **commercial** or **internal** use only.
 `,
     )
     .setVersion('1.0')
-    .setContact('KaiNext', 'https://kainext.cl', 'contacto@kainext.cl')
+    .setContact('KaiNext', 'https://kainext.cl', 'alejandro@kainext.cl')
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     .build();
 
