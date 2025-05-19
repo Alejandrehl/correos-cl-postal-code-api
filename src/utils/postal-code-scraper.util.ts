@@ -1,152 +1,137 @@
-import { Page } from 'playwright';
+import axios, { AxiosInstance } from 'axios';
+import * as qs from 'qs';
 import { normalizeText } from './normalize-text.util';
-import { getBrowser } from './browser-provider.util';
 import { AppLogger } from '../common/logger/logger.service';
 
 const logger = new AppLogger();
-const CONTEXT = 'PostalCodeScraper';
+const CONTEXT = 'PostalCodeScraperHTTP';
 
-function wait(seconds: number, msg = ''): Promise<void> {
-  if (msg) logger.verbose(`[WAIT] ${msg} (${seconds}s)`, CONTEXT);
-  return new Promise((res) => setTimeout(res, seconds * 1000));
+/* ════════════════════════  Tipos auxiliares  ═════════════════════════════ */
+
+type CookieJar = Record<string, string>;
+
+interface SessionData {
+  cookies: CookieJar;
+  authToken: string;
 }
 
-async function autocompleteSelect(
-  page: Page,
-  selector: string,
-  value: string,
-): Promise<void> {
-  await page.locator(selector).click();
-  await wait(0.5);
-  await page.locator(selector).fill(value);
-  await wait(1.2);
-  await page.keyboard.press('ArrowDown');
-  await wait(0.3);
-  await page.keyboard.press('Enter');
-  await wait(1);
+interface CorreosDireccion {
+  codPostal: string;
+  // Otros campos del backend de Correos que no nos interesan:
+  [key: string]: unknown;
 }
 
-async function ensureAutocompleteSelected(
-  page: Page,
-  selector: string,
-  expectedValue: string,
-  label: string,
-  maxRetries = 2,
-): Promise<void> {
-  for (let i = 0; i < maxRetries; i++) {
-    await autocompleteSelect(page, selector, expectedValue);
-    const actual = (await page.inputValue(selector)).trim().toUpperCase();
-    logger.debug(`Verifying ${label}: attempt ${i + 1} → '${actual}'`, CONTEXT);
-    if (actual.includes(expectedValue.toUpperCase())) return;
-    logger.warn(`${label} value not correctly applied, retrying...`, CONTEXT);
-  }
-  throw new Error(
-    `Failed to select ${label} correctly after ${maxRetries} attempts.`,
-  );
+interface CorreosApiResponse {
+  direcciones?: CorreosDireccion[];
+  currentDir?: string; // JSON serializado con codPostal
+  [key: string]: unknown;
 }
 
-async function ensureNumberFilled(
-  page: Page,
-  selector: string,
-  value: string,
-): Promise<void> {
-  await page.locator(selector).fill(value);
-  await wait(0.5);
-  const filled = (await page.inputValue(selector)).trim();
-  if (filled !== value.trim()) {
-    throw new Error(
-      `Number field not filled correctly: expected '${value}', got '${filled}'`,
-    );
-  }
+export interface PostalCodeResultSuccess {
+  postalCode: string;
 }
+
+export interface PostalCodeResultError {
+  error: string;
+}
+
+export type PostalCodeResult = PostalCodeResultSuccess | PostalCodeResultError;
+
+/* ═════════════════════════ Helper functions ══════════════════════════════ */
+
+function parseSetCookie(headers: string[] = []): CookieJar {
+  return headers.reduce<CookieJar>((jar, raw) => {
+    const [kv] = raw.split(';');
+    const [k, v] = kv.split('=');
+    jar[k.trim()] = v.trim();
+    return jar;
+  }, {});
+}
+
+function buildCookieHeader(jar: CookieJar): string {
+  const keys = ['__uzma', '__uzmb', '__uzme', 'JSESSIONID', 'SERVER_ID'];
+  const pairs = keys.filter((k) => jar[k]).map((k) => `${k}=${jar[k]}`);
+  pairs.push('COOKIE_SUPPORT=true', 'GUEST_LANGUAGE_ID=es_ES');
+  return pairs.join('; ');
+}
+
+async function startSession(): Promise<SessionData> {
+  const url = 'https://www.correos.cl/codigo-postal';
+  const res = await axios.get<string>(url, { timeout: 10_000 });
+
+  const cookies = parseSetCookie(res.headers['set-cookie']);
+  const match = res.data.match(/Liferay\.authToken\s*=\s*'([^']+)'/);
+  if (!match?.[1]) throw new Error('authToken not found');
+
+  return { cookies, authToken: match[1] };
+}
+
+/* ═════════════════════ Public scraper function ═══════════════════════════ */
 
 export async function scrapePostalCode(
   commune: string,
   street: string,
   number: string,
-): Promise<{ postalCode?: string; error?: string }> {
-  const normalizedCommune = normalizeText(commune);
-  const normalizedStreet = normalizeText(street);
-  const normalizedNumber = normalizeText(number);
+): Promise<PostalCodeResult> {
+  const com = normalizeText(commune);
+  const str = normalizeText(street);
+  const num = normalizeText(number);
 
-  logger.log(
-    `Scraping started for: '${commune}', '${street}', '${number}'`,
-    CONTEXT,
-  );
+  logger.log(`Lookup → '${com}', '${str}', '${num}'`, CONTEXT);
 
-  const browser = await getBrowser();
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  page.setDefaultTimeout(20000);
+  let http: AxiosInstance | null = null;
 
   try {
-    logger.log('Opening Correos de Chile postal code page...', CONTEXT);
-    await page.goto('https://www.correos.cl/codigo-postal', {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
+    /* 1️⃣  Crea sesión & cliente Axios */
+    const { cookies, authToken } = await startSession();
+    http = axios.create({
+      timeout: 15_000,
+      headers: { Cookie: buildCookieHeader(cookies) },
     });
 
-    await page.waitForSelector('input#mini-search-form-text');
-    await wait(1);
+    /* 2️⃣  Payload x-www-form-urlencoded */
+    const payload = qs.stringify({
+      _cl_cch_codigopostal_portlet_CodigoPostalPortlet_INSTANCE_MloJQpiDsCw9_comuna:
+        com,
+      _cl_cch_codigopostal_portlet_CodigoPostalPortlet_INSTANCE_MloJQpiDsCw9_calle:
+        str,
+      _cl_cch_codigopostal_portlet_CodigoPostalPortlet_INSTANCE_MloJQpiDsCw9_numero:
+        num,
+      p_auth: authToken,
+    });
 
-    await ensureAutocompleteSelected(
-      page,
-      'input#mini-search-form-text',
-      normalizedCommune,
-      'commune',
-    );
-    await ensureAutocompleteSelected(
-      page,
-      'input#mini-search-form-text-direcciones',
-      normalizedStreet,
-      'street',
-    );
-    await ensureNumberFilled(
-      page,
-      '#_cl_cch_codigopostal_portlet_CodigoPostalPortlet_INSTANCE_MloJQpiDsCw9_numero',
-      normalizedNumber,
-    );
+    const url =
+      'https://www.correos.cl/codigo-postal' +
+      '?p_p_id=cl_cch_codigopostal_portlet_CodigoPostalPortlet_INSTANCE_MloJQpiDsCw9' +
+      '&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view' +
+      '&p_p_resource_id=COOKIES_RESOURCE_ACTION&p_p_cacheability=cacheLevelPage' +
+      '&_cl_cch_codigopostal_portlet_CodigoPostalPortlet_INSTANCE_MloJQpiDsCw9_cmd=CMD_ADD_COOKIE';
 
-    await page
-      .locator("label[for='mini-search-form-text']")
-      .click({ force: true });
-    await wait(1);
+    /* 3️⃣  Llama al endpoint */
+    const { data } = await http.post<CorreosApiResponse>(url, payload, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
 
-    const searchBtn = page.locator(
-      '#_cl_cch_codigopostal_portlet_CodigoPostalPortlet_INSTANCE_MloJQpiDsCw9_searchDirection',
-    );
-    for (let i = 0; i < 20; i++) {
-      if (await searchBtn.isEnabled()) break;
-      await wait(0.5);
-      if (i === 19)
-        throw new Error('Search button did not become enabled in time.');
+    /* 4️⃣  Extrae el código postal */
+    const fromDirecciones = data.direcciones?.[0]?.codPostal;
+    const fromCurrentDir = data.currentDir
+      ? (JSON.parse(data.currentDir) as { codPostal?: string }).codPostal
+      : undefined;
+
+    const code = fromDirecciones ?? fromCurrentDir;
+
+    if (code) {
+      logger.log(`✔︎ Postal code → ${code}`, CONTEXT);
+      return { postalCode: code };
     }
 
-    await searchBtn.click({ force: true });
-    await wait(2);
-
-    const resultLocator = page.locator(
-      '#_cl_cch_codigopostal_portlet_CodigoPostalPortlet_INSTANCE_MloJQpiDsCw9_ddCodPostal',
-    );
-    await resultLocator.waitFor({ state: 'visible', timeout: 15000 });
-
-    const code = (await resultLocator.innerText()).trim();
-    logger.log(`Postal code retrieved: ${code}`, CONTEXT);
-    return { postalCode: code };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error(
-      `Scraper failed: ${message}`,
-      (error as Error)?.stack,
-      CONTEXT,
-    );
-    logger.debug(
-      `Scraper context → commune: '${commune}', street: '${street}', number: '${number}'`,
-      CONTEXT,
-    );
-    return { error: `Scraper failed: ${message}` };
+    logger.warn('Código no encontrado', CONTEXT);
+    return { error: 'Postal code not found' };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(`Scraper failed: ${msg}`, (err as Error)?.stack, CONTEXT);
+    return { error: msg };
   } finally {
-    await context.close();
-    logger.debug('Context closed after scraping', CONTEXT);
+    http = null; // hint GC
   }
 }

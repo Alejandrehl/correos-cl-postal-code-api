@@ -10,7 +10,10 @@ import { PostalCodeSearchDto } from './dto/postal-code-search.dto';
 import { AppLogger } from '../common/logger/logger.service';
 import { PostalCodeResponseDto } from './dto/postal-code-response.dto';
 import { normalizeText } from '../utils/normalize-text.util';
-import { scrapePostalCode } from '../utils/postal-code-scraper.util';
+import {
+  PostalCodeResult,
+  scrapePostalCode,
+} from '../utils/postal-code-scraper.util';
 import { Commune } from '../communes/entities/commune.entity';
 import { Street } from '../streets/entities/street.entity';
 import { StreetNumber } from '../street-numbers/entities/street-number.entity';
@@ -29,192 +32,122 @@ export class PostalCodesService {
     private readonly logger: AppLogger,
   ) {}
 
+  /* ───────────────────────────── findOrScrape ──────────────────────────── */
   async findOrScrape(
     dto: PostalCodeSearchDto,
   ): Promise<PostalCodeResponseDto | { error: string }> {
+    /* 1️⃣  Normaliza entrada */
     const communeInput = dto.commune.trim();
     const streetInput = dto.street.trim();
     const numberValue = dto.number.trim();
+    if (!numberValue) return { error: 'Número de calle no puede estar vacío' };
 
-    if (!numberValue) {
-      return { error: 'Número de calle no puede estar vacío' };
-    }
-
-    const normalizedCommune = normalizeText(communeInput);
-    const normalizedStreet = normalizeText(streetInput);
-
+    const nCommune = normalizeText(communeInput);
+    const nStreet = normalizeText(streetInput);
     this.logger.log(
-      `Normalized input → Commune: '${normalizedCommune}', Street: '${normalizedStreet}', Number: '${numberValue}'`,
+      `Normalized → '${nCommune}', '${nStreet}', '${numberValue}'`,
       'PostalCodesService',
     );
 
+    /* 2️⃣  Commune */
     const commune = await this.communeRepository.findOne({
-      where: { normalizedName: normalizedCommune },
+      where: { normalizedName: nCommune },
       relations: ['region'],
     });
+    if (!commune)
+      throw new NotFoundException(`Commune '${communeInput}' not found`);
 
-    if (!commune) {
-      this.logger.warn(
-        `Commune not found: '${communeInput}'`,
+    /* 3️⃣  Busca cache con todas las relaciones */
+    const cached = await this.streetNumberRepository.findOne({
+      where: {
+        value: numberValue,
+        street: {
+          normalizedName: nStreet,
+          commune: { id: commune.id },
+        },
+      },
+      relations: [
+        'postalCode',
+        'street',
+        'street.commune',
+        'street.commune.region',
+      ],
+    });
+    if (cached?.postalCode) {
+      this.logger.log(
+        `Cache → ${cached.street.name} ${numberValue} ➜ ${cached.postalCode.code}`,
         'PostalCodesService',
       );
-      throw new NotFoundException(`Commune '${communeInput}' not found`);
+      return this.toDto(cached);
     }
 
-    let street = await this.streetRepository.findOne({
-      where: {
-        normalizedName: normalizedStreet,
-        commune: { id: commune.id },
-      },
-    });
-
-    let streetNumber: StreetNumber | null = null;
-
-    if (street) {
-      this.logger.debug(`Street found: ${street.name}`, 'PostalCodesService');
-
-      streetNumber = await this.streetNumberRepository.findOne({
-        where: {
-          value: numberValue,
-          street: { id: street.id },
-        },
-        relations: ['postalCode'],
-      });
-
-      if (streetNumber?.postalCode) {
-        this.logger.log(
-          `Postal code already exists for ${street.name} ${numberValue}: ${streetNumber.postalCode.code}`,
-          'PostalCodesService',
-        );
-
-        return {
-          id: streetNumber.postalCode.id,
-          street: street.name.toUpperCase(),
-          number: streetNumber.value,
-          commune: commune.name.toUpperCase(),
-          region: commune.region.label.toUpperCase(),
-          postalCode: streetNumber.postalCode.code,
-        };
-      }
-    }
-
-    this.logger.debug(
-      `No valid postal code found. Executing scraper...`,
-      'PostalCodesService',
-    );
-
-    const result = await scrapePostalCode(
+    /* 4️⃣  Scrape */
+    const result: PostalCodeResult = await scrapePostalCode(
       commune.name,
       streetInput,
       numberValue,
     );
+    if ('error' in result) return { error: result.error };
 
-    if (result.error) {
-      this.logger.error(
-        `Scraping failed: ${result.error}`,
-        undefined,
-        'PostalCodesService',
-      );
-      return { error: result.error };
-    }
+    const scrapedCode = result.postalCode.trim();
+    this.logger.log(`Scraper OK → ${scrapedCode}`, 'PostalCodesService');
 
-    const scrapedCode = result.postalCode!.trim();
+    /* 5️⃣  Persiste street + postalCode + number */
+    const street =
+      (await this.streetRepository.findOne({
+        where: { normalizedName: nStreet, commune: { id: commune.id } },
+      })) ??
+      (await this.streetRepository.save(
+        this.streetRepository.create({
+          name: streetInput.toUpperCase(),
+          normalizedName: nStreet,
+          commune,
+        }),
+      ));
 
-    this.logger.log(
-      `Scraper returned postal code: ${scrapedCode}`,
-      'PostalCodesService',
-    );
-
-    if (!street) {
-      const existingStreet = await this.streetRepository.findOne({
-        where: {
-          normalizedName: normalizedStreet,
-          commune: { id: commune.id },
-        },
-      });
-
-      if (existingStreet) {
-        this.logger.warn(
-          `Race condition detected: reusing existing street`,
-          'PostalCodesService',
-        );
-        street = existingStreet;
-      } else {
-        street = await this.streetRepository.save(
-          this.streetRepository.create({
-            name: streetInput.toUpperCase(),
-            normalizedName: normalizedStreet,
-            commune,
-          }),
-        );
-        this.logger.log(
-          `New street created: ${street.name}`,
-          'PostalCodesService',
-        );
-      }
-    }
-
-    let postalCode = await this.postalCodeRepository.findOne({
-      where: { code: scrapedCode },
-    });
-
-    if (!postalCode) {
-      postalCode = await this.postalCodeRepository.save(
+    const postalCode =
+      (await this.postalCodeRepository.findOne({
+        where: { code: scrapedCode },
+      })) ??
+      (await this.postalCodeRepository.save(
         this.postalCodeRepository.create({ code: scrapedCode }),
-      );
-      this.logger.log(
-        `New postal code created: ${postalCode.code}`,
-        'PostalCodesService',
-      );
-    } else {
-      this.logger.debug(
-        `Postal code reused: ${postalCode.code}`,
-        'PostalCodesService',
-      );
-    }
+      ));
 
-    if (!streetNumber) {
-      const existingStreetNumber = await this.streetNumberRepository.findOne({
-        where: {
-          value: numberValue,
-          street: { id: street.id },
-        },
+    const numberEntity =
+      (await this.streetNumberRepository.findOne({
+        where: { value: numberValue, street: { id: street.id } },
+      })) ??
+      this.streetNumberRepository.create({
+        value: numberValue,
+        street,
+        postalCode,
       });
 
-      if (existingStreetNumber) {
-        this.logger.warn(
-          `Race condition on number. Reusing and updating`,
-          'PostalCodesService',
-        );
-        streetNumber = existingStreetNumber;
-      } else {
-        streetNumber = this.streetNumberRepository.create({
-          value: numberValue,
-          street,
-          postalCode,
-        });
-        this.logger.log(`Creating new street number`, 'PostalCodesService');
-      }
-    }
+    if (!numberEntity.postalCode) numberEntity.postalCode = postalCode;
+    await this.streetNumberRepository.save(numberEntity);
 
-    if (!streetNumber.postalCode) {
-      streetNumber.postalCode = postalCode;
-    }
+    /* 6️⃣  Fetch completo para DTO (evita campos undefined) */
+    const full = await this.streetNumberRepository.findOneOrFail({
+      where: { id: numberEntity.id },
+      relations: [
+        'postalCode',
+        'street',
+        'street.commune',
+        'street.commune.region',
+      ],
+    });
+    return this.toDto(full);
+  }
 
-    await this.streetNumberRepository.save(streetNumber);
-
-    this.logger.log(
-      `Street number saved: ${street.name} ${streetNumber.value} → ${postalCode.code}`,
-      'PostalCodesService',
-    );
-
+  /* helper */
+  private toDto(sn: StreetNumber): PostalCodeResponseDto {
     return {
-      id: postalCode.id,
-      street: street.name.toUpperCase(),
-      number: streetNumber.value,
-      commune: commune.name.toUpperCase(),
-      region: commune.region.label.toUpperCase(),
-      postalCode: postalCode.code,
+      id: sn.postalCode.id,
+      street: sn.street.name.toUpperCase(),
+      number: sn.value,
+      commune: sn.street.commune.name.toUpperCase(),
+      region: sn.street.commune.region.label.toUpperCase(),
+      postalCode: sn.postalCode.code,
     };
   }
 
