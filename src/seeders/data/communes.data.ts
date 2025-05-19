@@ -78,7 +78,7 @@ const communesData: CommuneData[] = [
   { name: 'Santo Domingo', regionNumber: 5 },
   { name: 'San Felipe', regionNumber: 5 },
   { name: 'Catemu', regionNumber: 5 },
-  { name: 'Llay-Llay', regionNumber: 5 },
+  { name: 'LlaiLlay', regionNumber: 5 },
   { name: 'Panquehue', regionNumber: 5 },
   { name: 'Putaendo', regionNumber: 5 },
   { name: 'Santa María', regionNumber: 5 },
