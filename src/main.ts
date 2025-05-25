@@ -73,6 +73,8 @@ Cloud-native software to automate processes and scale real-world impact.
     .setVersion('1.0')
     .setContact('KaiNext', 'https://kainext.cl', 'alejandro@kainext.cl')
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+    .addServer('https://postal-code-api.kainext.cl', 'Production')
+    .addServer('http://localhost:3000', 'Local development')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
