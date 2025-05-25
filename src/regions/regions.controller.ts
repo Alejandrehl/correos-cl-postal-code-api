@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RegionsService } from './regions.service';
-import { RegionResponseDto } from './dto/region-response.dto';
+import { RegionWithCommunesResponseDto } from './dto/region-with-communes-response.dto';
 
 @ApiTags('🌍 Locations')
 @Controller('regions')
@@ -16,10 +16,10 @@ Useful for building location selectors or validating regional data.`,
   })
   @ApiOkResponse({
     description: 'List of regions with communes retrieved successfully.',
-    type: RegionResponseDto,
+    type: RegionWithCommunesResponseDto,
     isArray: true,
   })
-  async findAllWithCommunes(): Promise<RegionResponseDto[]> {
+  async findAllWithCommunes(): Promise<RegionWithCommunesResponseDto[]> {
     return this.regionsService.findAllWithCommunes();
   }
 }

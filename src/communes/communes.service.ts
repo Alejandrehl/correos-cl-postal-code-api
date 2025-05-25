@@ -21,7 +21,13 @@ export class CommunesService {
     return communes.map((commune) => ({
       id: commune.id,
       name: commune.name.toUpperCase(),
-      region: commune.region.label.toUpperCase(),
+      region: {
+        id: commune.region.id,
+        name: commune.region.name,
+        number: commune.region.number,
+        romanNumber: commune.region.romanNumber,
+        label: commune.region.label,
+      },
     }));
   }
 }

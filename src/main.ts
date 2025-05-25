@@ -41,14 +41,14 @@ async function bootstrap(): Promise<void> {
     .setDescription(
       `
 📦 **KaiNext Location Data API**
-Real-time and cached geographic data for Chile — including postal codes, regions, communes, and (soon) streets.
+Real-time and cached geographic data for Chile — including postal codes, regions, communes, and streets.
 **100% free, open, and ready to use** — no API keys, tokens, or sign-ups required.
 
 ---
 
 ## ✅ Public & Free Endpoints
-All endpoints below are fully open for public access.
-Ideal for use in apps, scripts, academic tools, and production systems.
+All endpoints are fully open to the public.
+Perfect for apps, integrations, academic research, and location-based systems.
 
 ### 🧩 System
 - \`GET /v1/health\` → System health status
@@ -62,8 +62,7 @@ Ideal for use in apps, scripts, academic tools, and production systems.
 ### 🌍 Locations
 - \`GET /v1/regions/with-communes\` → List of Chilean regions with communes
 - \`GET /v1/communes/all\` → List of all Chilean communes
-
-> 🛣️ Street endpoints coming soon…
+- \`GET /v1/streets\` → Paginated and filterable list of Chilean streets
 
 ---
 

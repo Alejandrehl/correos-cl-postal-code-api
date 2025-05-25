@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Region } from './entities/region.entity';
-import { RegionResponseDto } from './dto/region-response.dto';
+import { RegionWithCommunesResponseDto } from './dto/region-with-communes-response.dto';
 
 @Injectable()
 export class RegionsService {
@@ -11,7 +11,7 @@ export class RegionsService {
     private readonly regionRepository: Repository<Region>,
   ) {}
 
-  async findAllWithCommunes(): Promise<RegionResponseDto[]> {
+  async findAllWithCommunes(): Promise<RegionWithCommunesResponseDto[]> {
     const regions = await this.regionRepository.find({
       where: { isActive: true },
       relations: ['communes'],
