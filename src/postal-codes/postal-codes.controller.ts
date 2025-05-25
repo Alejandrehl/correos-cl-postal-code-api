@@ -19,8 +19,6 @@ import {
 import { PostalCodesService } from './postal-codes.service';
 import { PostalCodeSearchDto } from './dto/postal-code-search.dto';
 import { PostalCodeResponseDto } from './dto/postal-code-response.dto';
-import { SecureQueryDto } from '../common/dto/secure-query.dto';
-import { validatePasswordOrThrow } from '../utils/validate-password.util';
 
 type PaginatedPostalCodes = {
   data: PostalCodeResponseDto[];
@@ -60,14 +58,9 @@ First checks the database; if not found, it scrapes Correos de Chile and stores 
 
   @Get()
   @ApiOperation({
-    summary: '🔐 Get paginated list of all postal codes',
+    summary: '🔓 Get paginated list of all postal codes',
     description: `**Paid endpoint.** Returns every registered postal code along with its associated addresses (street, number, commune, region).
 Supports pagination via \`page\` and \`limit\` query parameters. Requires authentication or secure password.`,
-  })
-  @ApiQuery({
-    name: 'password',
-    required: true,
-    example: 'supersecure-long-password-5481',
   })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -90,26 +83,19 @@ Supports pagination via \`page\` and \`limit\` query parameters. Requires authen
     },
   })
   async findAll(
-    @Query() secure: SecureQueryDto,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ): Promise<PaginatedPostalCodes> {
-    validatePasswordOrThrow(secure.password);
     return this.postalCodesService.findAll(page, limit);
   }
 
   @Get(':code')
   @ApiOperation({
-    summary: '🔐 Get all addresses for a given postal code',
+    summary: '🔓 Get all addresses for a given postal code',
     description: `**Paid endpoint.** Returns a list of all known addresses (street and number) that correspond to the specified postal code.
 Useful for reverse lookups. Requires authentication or secure password.`,
   })
   @ApiParam({ name: 'code', example: '7550174' })
-  @ApiQuery({
-    name: 'password',
-    required: true,
-    example: 'supersecure-long-password-5481',
-  })
   @ApiOkResponse({
     description: 'List of addresses that share the postal code.',
     type: [PostalCodeResponseDto],
@@ -126,9 +112,7 @@ Useful for reverse lookups. Requires authentication or secure password.`,
   })
   async findByCode(
     @Param('code') code: string,
-    @Query() secure: SecureQueryDto,
   ): Promise<PostalCodeResponseDto[]> {
-    validatePasswordOrThrow(secure.password);
     return this.postalCodesService.findByCode(code);
   }
 }
