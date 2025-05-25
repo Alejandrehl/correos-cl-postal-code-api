@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { SeedersService } from './seeders.service';
-import { SeedersController } from './seeders.controller';
+// import { SeedersController } from './seeders.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Region } from '../regions/entities/region.entity';
 import { Commune } from '../communes/entities/commune.entity';
@@ -18,7 +18,7 @@ import { PostalCode } from '../postal-codes/entities/postal-code.entity';
       PostalCode,
     ]),
   ],
-  controllers: [SeedersController],
+  // controllers: [SeedersController],
   providers: [SeedersService],
 })
 export class SeedersModule {}
