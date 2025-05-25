@@ -33,7 +33,7 @@ export class PostalCodesController {
   @Get('search')
   @HttpCode(200)
   @ApiOperation({
-    summary: '🔓 Search postal code by commune, street, and number',
+    summary: '🔍 Search postal code by commune, street, and number',
     description: `**Public endpoint.** Searches the postal code by exact address (commune + street + number).
 First checks the database; if not found, it scrapes Correos de Chile and stores the result for future use.`,
   })
@@ -58,7 +58,7 @@ First checks the database; if not found, it scrapes Correos de Chile and stores 
 
   @Get()
   @ApiOperation({
-    summary: '🔓 Get paginated list of all postal codes',
+    summary: '📄 Get paginated list of all postal codes',
     description: `**Paid endpoint.** Returns every registered postal code along with its associated addresses (street, number, commune, region).
 Supports pagination via \`page\` and \`limit\` query parameters. Requires authentication or secure password.`,
   })
@@ -91,7 +91,7 @@ Supports pagination via \`page\` and \`limit\` query parameters. Requires authen
 
   @Get(':code')
   @ApiOperation({
-    summary: '🔓 Get all addresses for a given postal code',
+    summary: '📬 Get all addresses for a given postal code',
     description: `**Paid endpoint.** Returns a list of all known addresses (street and number) that correspond to the specified postal code.
 Useful for reverse lookups. Requires authentication or secure password.`,
   })

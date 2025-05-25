@@ -37,36 +37,39 @@ async function bootstrap(): Promise<void> {
 
   // Swagger configuration
   const config = new DocumentBuilder()
-    .setTitle('📮 Chilean Postal Codes API')
+    .setTitle('📦 KaiNext Location Data API')
     .setDescription(
       `
-📮 **The Chilean Postal Codes API** provides programmatic access to real-time and cached postal code data for Chile.
+📦 **KaiNext Location Data API**
+Real-time and cached geographic data for Chile — including postal codes, regions, communes, and (soon) streets.
+**100% free, open, and ready to use** — no API keys, tokens, or sign-ups required.
 
 ---
 
-## 🔓 Free Public Endpoints (no authentication required)
-These endpoints are open to everyone and ready to integrate into any system — no API key or contact required.
+## ✅ Public & Free Endpoints
+All endpoints below are fully open for public access.
+Ideal for use in apps, scripts, academic tools, and production systems.
 
+### 🧩 System
 - \`GET /v1/health\` → System health status
-- \`GET /v1/stats/summary\` → Record counts for each entity
+- \`GET /v1/stats/summary\` → Database record counts
+
+### 📮 Postal Codes
 - \`GET /v1/postal-codes/search\` → Search postal code by address
-- \`GET /v1/regions/with-communes\` → List of Chilean regions
-- \`GET /v1/communes/all\` → List of Chilean communes
-
-## 🔐 Protected Endpoints (password required)
-These endpoints provide full access to stored postal data, reverse lookups, internal tools, and data maintenance.
-They are intended for **commercial** or **internal** use only.
-
 - \`GET /v1/postal-codes\` → Paginated list of all postal codes
-- \`GET /v1/postal-codes/:code\` → Reverse lookup: addresses for a postal code
-- \`POST /v1/seeders/*\` → Seeding & normalization tools
+- \`GET /v1/postal-codes/:code\` → Reverse lookup: addresses by postal code
 
-> ⚠️ To access protected features or request a commercial subscription, contact us at [alejandro@kainext.cl](mailto:alejandro@kainext.cl).
+### 🌍 Locations
+- \`GET /v1/regions/with-communes\` → List of Chilean regions with communes
+- \`GET /v1/communes/all\` → List of all Chilean communes
+
+> 🛣️ Street endpoints coming soon…
 
 ---
 
-🛠️ Built with ❤️ by [KaiNext](https://kainext.cl) — Cloud solutions that automate processes and scale real-world businesses.
-`,
+🛠️ Built with ❤️ by [KaiNext](https://kainext.cl)
+Cloud-native software to automate processes and scale real-world impact.
+    `,
     )
     .setVersion('1.0')
     .setContact('KaiNext', 'https://kainext.cl', 'alejandro@kainext.cl')
